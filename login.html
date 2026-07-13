@@ -12,7 +12,6 @@
   #status { margin-top: 16px; font-size: 14px; white-space: pre-wrap; }
   .ok { color: green; }
   .erro { color: #c0392b; }
-  #passoCodigo { display: none; }
 </style>
 </head>
 <body>
@@ -24,10 +23,9 @@
   <button id="btnEntrar">Entrar</button>
 </div>
 
-<div id="passoCodigo">
-  <p>Digite o código de 6 dígitos enviado para o seu email:</p>
-  <input type="text" id="codigo" placeholder="000000" inputmode="numeric" maxlength="6">
-  <button id="btnConfirmar">Confirmar código</button>
+<div id="passoCodigo" style="display:none;">
+  <input type="text" id="codigo" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric">
+  <button id="btnVerificar">Confirmar código</button>
 </div>
 
 <div id="status"></div>
@@ -36,22 +34,17 @@
   const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
 
-  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const statusEl = document.getElementById("status");
   const emailInput = document.getElementById("email");
-  const codigoInput = document.getElementById("codigo");
   const btnEntrar = document.getElementById("btnEntrar");
-  const btnConfirmar = document.getElementById("btnConfirmar");
   const passoEmail = document.getElementById("passoEmail");
   const passoCodigo = document.getElementById("passoCodigo");
+  const codigoInput = document.getElementById("codigo");
+  const btnVerificar = document.getElementById("btnVerificar");
 
-  let emailAtual = "";
+  let emailAtual = ""; // guarda o email confirmado para usar na verificação do código
 
   function setStatus(msg, tipo) {
     statusEl.textContent = msg;
@@ -89,15 +82,16 @@
         return;
       }
 
-      // 2. Email existe -> envia o codigo de 6 digitos (sem emailRedirectTo,
-      // nao usamos link clicavel, entao scanners de seguranca corporativos
-      // nao conseguem "gastar" o codigo sozinhos)
-      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando código...`);
+      // 2. Email existe → dispara o código de acesso.
+      // O envio em si (Supabase x Resend) é decidido no "Send Email Hook"
+      // configurado no painel do Supabase (Authentication > Hooks), não aqui no front.
+      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando código de acesso...`);
 
       const { error: erroOtp } = await supabaseClient.auth.signInWithOtp({
         email: email,
         options: {
-          shouldCreateUser: false
+          shouldCreateUser: false, // não permite auto-cadastro
+          emailRedirectTo: "https://finfortes.com/painel.html" // ajuste para sua URL de destino
         }
       });
 
@@ -108,9 +102,9 @@
       }
 
       emailAtual = email;
+      setStatus("Código enviado! Confira seu email (" + email + ") e digite o código abaixo.", "ok");
       passoEmail.style.display = "none";
       passoCodigo.style.display = "block";
-      setStatus("Código enviado! Confira seu email (" + email + ") e digite o código abaixo.", "ok");
     } catch (e) {
       setStatus("Erro inesperado: " + e.message, "erro");
     } finally {
@@ -118,7 +112,7 @@
     }
   });
 
-  btnConfirmar.addEventListener("click", async () => {
+  btnVerificar.addEventListener("click", async () => {
     const codigo = codigoInput.value.trim();
 
     if (!codigo) {
@@ -126,19 +120,19 @@
       return;
     }
 
-    btnConfirmar.disabled = true;
-    setStatus("Confirmando código...");
+    btnVerificar.disabled = true;
+    setStatus("Verificando código...");
 
     try {
-      const { data, error } = await supabaseClient.auth.verifyOtp({
+      const { data, error: erroVerify } = await supabaseClient.auth.verifyOtp({
         email: emailAtual,
         token: codigo,
         type: "email"
       });
 
-      if (error || !data.session) {
-        setStatus("Código inválido ou expirado. Tente entrar novamente.", "erro");
-        btnConfirmar.disabled = false;
+      if (erroVerify) {
+        setStatus("Código inválido ou expirado: " + erroVerify.message, "erro");
+        btnVerificar.disabled = false;
         return;
       }
 
@@ -151,7 +145,7 @@
       window.location.href = "/";
     } catch (e) {
       setStatus("Erro inesperado: " + e.message, "erro");
-      btnConfirmar.disabled = false;
+      btnVerificar.disabled = false;
     }
   });
 </script>
