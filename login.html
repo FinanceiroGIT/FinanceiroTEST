@@ -1,154 +1,580 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<title>Finfortes — Login</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finfortes · Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
-  h1 { font-size: 20px; }
-  input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; font-size: 15px; }
-  button { padding: 10px 16px; font-size: 15px; cursor: pointer; }
-  #status { margin-top: 16px; font-size: 14px; white-space: pre-wrap; }
-  .ok { color: green; }
-  .erro { color: #c0392b; }
+  :root {
+    --brand-deep: #142348;
+    --brand-deep-2: #1c3170;
+    --brand: #2A4BD6;
+    --brand-soft: #E7EBFB;
+    --gold: #B98B29;
+    --bg: #F4F5FA;
+    --surface: #FFFFFF;
+    --ink: #10142A;
+    --ink-soft: #5B6178;
+    --line: #E2E4EE;
+    --error: #B4392F;
+    --error-bg: #FBEBE9;
+    --success: #1E7F52;
+    --success-bg: #E9F6EF;
+    --radius: 14px;
+    --shadow: 0 20px 60px -20px rgba(16, 20, 42, 0.25);
+  }
+  html[data-theme="dark"] {
+    --bg: #0B0E1C;
+    --surface: #12162A;
+    --ink: #EDEFF8;
+    --ink-soft: #9297AE;
+    --line: #262B45;
+    --brand-soft: #1A2247;
+    --error-bg: #3A1E1C;
+    --success-bg: #163023;
+    --shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    transition: background .3s ease, color .3s ease;
+  }
+  @media (max-width: 860px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  }
+
+  /* ---- Brand panel ---- */
+  .brand {
+    position: relative;
+    background: linear-gradient(160deg, var(--brand-deep) 0%, var(--brand-deep-2) 100%);
+    color: #EEF1FF;
+    padding: 56px 56px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+  @media (max-width: 860px) {
+    .brand { padding: 32px 28px; min-height: 220px; }
+  }
+  .brand-top { position: relative; z-index: 2; }
+  .wordmark {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(30px, 4vw, 40px);
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+  }
+  .tagline {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #A9B3E8;
+    margin: 0;
+  }
+  .ledger {
+    position: relative;
+    z-index: 2;
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 320px;
+  }
+  .ledger-row {
+    display: grid;
+    grid-template-columns: 1fr 22px 1fr;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    animation: rowIn .5s ease forwards;
+  }
+  .ledger-row:nth-child(1) { animation-delay: .1s; }
+  .ledger-row:nth-child(2) { animation-delay: .28s; }
+  .ledger-row:nth-child(3) { animation-delay: .46s; }
+  .ledger-row:nth-child(4) { animation-delay: .64s; }
+  @keyframes rowIn { to { opacity: 1; } }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.14); }
+  .bar.match { background: linear-gradient(90deg, var(--gold), #D9AE55); }
+  .tick {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(185,139,41,0.16);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gold); font-size: 13px; font-weight: 600;
+  }
+  .brand-foot {
+    position: relative; z-index: 2;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: #7C87BE;
+  }
+  .brand::after {
+    content: "";
+    position: absolute; inset: -20% -10% auto auto;
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, rgba(185,139,41,0.14), transparent 70%);
+    z-index: 1;
+  }
+
+  /* ---- Form panel ---- */
+  .panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 380px;
+  }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+  }
+  .card-head h1 {
+    font-size: 21px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .card-head p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+  .theme-toggle {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--brand); color: var(--brand); }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-bottom: 7px;
+  }
+  .email-field {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color .15s ease;
+  }
+  .email-field:focus-within { border-color: var(--brand); }
+  .email-field input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 15px;
+    padding: 13px 4px 13px 14px;
+    font-family: 'Inter', sans-serif;
+  }
+  .email-suffix {
+    display: flex;
+    align-items: center;
+    padding: 0 14px 0 6px;
+    color: var(--ink-soft);
+    font-size: 15px;
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--brand-soft);
+    border-left: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 8px 0 0;
+  }
+  button.submit {
+    width: 100%;
+    margin-top: 20px;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--brand);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s ease, transform .05s ease;
+  }
+  button.submit:hover { filter: brightness(1.08); }
+  button.submit:active { transform: scale(0.99); }
+  button.submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .status {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.4;
+  }
+  .status.show { display: flex; }
+  .status.error { background: var(--error-bg); color: var(--error); }
+  .status.success { background: var(--success-bg); color: var(--success); }
+  .status.info { background: var(--brand-soft); color: var(--brand); }
+
+  /* ---- Etapa OTP ---- */
+  .step { display: none; }
+  .step.active { display: block; }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--ink-soft);
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .back-link:hover { color: var(--brand); }
+  .otp-target {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .otp-boxes {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .otp-boxes input {
+    width: 100%;
+    aspect-ratio: 1;
+    text-align: center;
+    font-size: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .otp-boxes input:focus { border-color: var(--brand); }
+  .resend-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .resend-link {
+    background: none;
+    border: none;
+    color: var(--brand);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+  .resend-link:disabled { color: var(--ink-soft); cursor: not-allowed; }
 </style>
 </head>
 <body>
 
-<h1>Finfortes — Login</h1>
+  <section class="brand">
+    <div class="brand-top">
+      <p class="wordmark">Finfortes</p>
+      <p class="tagline">Conciliação financeira · Fortes</p>
+      <div class="ledger">
+        <div class="ledger-row"><div class="bar" style="width:100%"></div><div class="tick">✓</div><div class="bar" style="width:100%"></div></div>
+        <div class="ledger-row"><div class="bar match" style="width:80%"></div><div class="tick">✓</div><div class="bar match" style="width:80%"></div></div>
+        <div class="ledger-row"><div class="bar" style="width:60%"></div><div class="tick">✓</div><div class="bar" style="width:60%"></div></div>
+        <div class="ledger-row"><div class="bar match" style="width:90%"></div><div class="tick">✓</div><div class="bar match" style="width:90%"></div></div>
+      </div>
+    </div>
+    <p class="brand-foot">finfortes.com</p>
+  </section>
 
-<div id="passoEmail">
-  <input type="email" id="email" placeholder="seu-email@fortes.ind.br">
-  <button id="btnEntrar">Entrar</button>
-</div>
+  <section class="panel">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h1>Entrar</h1>
+          <p>Use seu e-mail corporativo Fortes</p>
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button" title="Alternar tema">◐</button>
+      </div>
 
-<div id="passoCodigo" style="display:none;">
-  <input type="text" id="codigo" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric">
-  <button id="btnVerificar">Confirmar código</button>
-</div>
+      <div class="step active" id="stepEmail">
+        <form id="loginForm" novalidate>
+          <label for="emailLocal">E-mail</label>
+          <div class="email-field">
+            <input type="text" id="emailLocal" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+            <span class="email-suffix">@fortes.ind.br</span>
+          </div>
+          <p class="hint">Apenas e-mails @fortes.ind.br têm acesso ao Finfortes.</p>
 
-<div id="status"></div>
+          <button type="submit" class="submit" id="submitBtn">Verificar acesso</button>
+        </form>
+      </div>
 
-<script>
-  const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
+      <div class="step" id="stepOtp">
+        <button type="button" class="back-link" id="backBtn">← Trocar e-mail</button>
+        <p class="hint" style="margin-bottom:14px;">Enviamos um código para <span class="otp-target" id="otpTarget"></span></p>
 
-  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        <form id="otpForm" novalidate>
+          <label>Código de acesso</label>
+          <div class="otp-boxes" id="otpBoxes">
+            <input type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+            <input type="text" inputmode="numeric" maxlength="1">
+            <input type="text" inputmode="numeric" maxlength="1">
+            <input type="text" inputmode="numeric" maxlength="1">
+            <input type="text" inputmode="numeric" maxlength="1">
+            <input type="text" inputmode="numeric" maxlength="1">
+          </div>
+          <button type="submit" class="submit" id="verifyBtn">Entrar</button>
+        </form>
 
-  const statusEl = document.getElementById("status");
-  const emailInput = document.getElementById("email");
-  const btnEntrar = document.getElementById("btnEntrar");
-  const passoEmail = document.getElementById("passoEmail");
-  const passoCodigo = document.getElementById("passoCodigo");
-  const codigoInput = document.getElementById("codigo");
-  const btnVerificar = document.getElementById("btnVerificar");
+        <div class="resend-row">
+          <span>Não recebeu?</span>
+          <button type="button" class="resend-link" id="resendBtn">Reenviar código</button>
+        </div>
+      </div>
 
-  let emailAtual = ""; // guarda o email confirmado para usar na verificação do código
+      <div class="status" id="status"></div>
+    </div>
+  </section>
 
-  function setStatus(msg, tipo) {
-    statusEl.textContent = msg;
-    statusEl.className = tipo || "";
-  }
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  btnEntrar.addEventListener("click", async () => {
-    const email = emailInput.value.trim().toLowerCase();
+    const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
+    const DOMAIN = "@fortes.ind.br";
 
-    if (!email) {
-      setStatus("Digite um email.", "erro");
-      return;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('loginForm');
+    const emailLocal = document.getElementById('emailLocal');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('status');
+
+    const stepEmail = document.getElementById('stepEmail');
+    const stepOtp = document.getElementById('stepOtp');
+    const otpTarget = document.getElementById('otpTarget');
+    const otpForm = document.getElementById('otpForm');
+    const otpBoxes = [...document.querySelectorAll('#otpBoxes input')];
+    const verifyBtn = document.getElementById('verifyBtn');
+    const backBtn = document.getElementById('backBtn');
+    const resendBtn = document.getElementById('resendBtn');
+
+    let currentEmail = '';
+    let resendTimer = null;
+
+    function setStatus(kind, message) {
+      statusBox.className = 'status show ' + kind;
+      statusBox.textContent = message;
+    }
+    function clearStatus() {
+      statusBox.className = 'status';
+      statusBox.textContent = '';
     }
 
-    btnEntrar.disabled = true;
-    setStatus("Verificando cadastro...");
+    function goToOtpStep(email) {
+      currentEmail = email;
+      otpTarget.textContent = email;
+      stepEmail.classList.remove('active');
+      stepOtp.classList.add('active');
+      otpBoxes.forEach(b => b.value = '');
+      otpBoxes[0].focus();
+      startResendCooldown();
+    }
 
-    try {
-      // 1. Confere se o email existe na tabela Perfil
-      const { data: perfil, error: erroPerfil } = await supabaseClient
-        .from("Perfil")
-        .select("nome, email, un")
-        .ilike("email", email)
-        .maybeSingle();
+    function goToEmailStep() {
+      stepOtp.classList.remove('active');
+      stepEmail.classList.add('active');
+      clearStatus();
+      if (resendTimer) clearInterval(resendTimer);
+    }
 
-      if (erroPerfil) {
-        setStatus("Erro ao consultar Perfil: " + erroPerfil.message, "erro");
-        btnEntrar.disabled = false;
+    function startResendCooldown(seconds = 30) {
+      let remaining = seconds;
+      resendBtn.disabled = true;
+      resendBtn.textContent = `Reenviar código (${remaining}s)`;
+      if (resendTimer) clearInterval(resendTimer);
+      resendTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(resendTimer);
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Reenviar código';
+        } else {
+          resendBtn.textContent = `Reenviar código (${remaining}s)`;
+        }
+      }, 1000);
+    }
+
+    async function sendOtp(email) {
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      return error;
+    }
+
+    // Bloqueia qualquer tentativa de digitar "@algumacoisa" no campo — só o nome de usuário é editável
+    emailLocal.addEventListener('input', () => {
+      emailLocal.value = emailLocal.value.replace(/[@\s]/g, '');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearStatus();
+
+      const local = emailLocal.value.trim();
+      if (!local) {
+        setStatus('error', 'Digite seu nome de usuário corporativo.');
         return;
       }
 
-      if (!perfil) {
-        setStatus("Este email não está cadastrado no sistema. Fale com o administrador.", "erro");
-        btnEntrar.disabled = false;
-        return;
+      const email = (local + DOMAIN).toLowerCase();
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verificando...';
+
+      try {
+        const { data, error } = await supabase
+          .from('Perfil')
+          .select('nome, email')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (error) {
+          console.error(error);
+          setStatus('error', 'Não foi possível verificar o e-mail agora. Tente novamente em instantes.');
+        } else if (data) {
+          setStatus('info', `Enviando código para ${data.nome.split(' ')[0]}...`);
+          const otpError = await sendOtp(email);
+          if (otpError) {
+            console.error(otpError);
+            setStatus('error', 'E-mail cadastrado, mas não foi possível enviar o código agora.');
+          } else {
+            goToOtpStep(email);
+          }
+        } else {
+          setStatus('error', 'Este e-mail não está cadastrado no Finfortes. Fale com o financeiro.');
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus('error', 'Falha de conexão com o Supabase.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verificar acesso';
       }
+    });
 
-      // 2. Email existe → dispara o código de acesso.
-      // O envio em si (Supabase x Resend) é decidido no "Send Email Hook"
-      // configurado no painel do Supabase (Authentication > Hooks), não aqui no front.
-      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando código de acesso...`);
-
-      const { error: erroOtp } = await supabaseClient.auth.signInWithOtp({
-        email: email,
-        options: {
-          shouldCreateUser: false, // não permite auto-cadastro
-          emailRedirectTo: "https://finfortes.com/painel.html" // ajuste para sua URL de destino
+    // Navegação entre as caixas do código (auto-avança e aceita colar o código inteiro)
+    otpBoxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        box.value = box.value.replace(/\D/g, '').slice(0, 1);
+        if (box.value && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
+      });
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !box.value && i > 0) otpBoxes[i - 1].focus();
+      });
+      box.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        if (pasted.length > 1) {
+          e.preventDefault();
+          pasted.split('').forEach((digit, idx) => { if (otpBoxes[idx]) otpBoxes[idx].value = digit; });
+          otpBoxes[Math.min(pasted.length, otpBoxes.length) - 1].focus();
         }
       });
+    });
 
-      if (erroOtp) {
-        setStatus("Erro ao enviar o código: " + erroOtp.message, "erro");
-        btnEntrar.disabled = false;
+    backBtn.addEventListener('click', goToEmailStep);
+
+    resendBtn.addEventListener('click', async () => {
+      if (resendBtn.disabled) return;
+      clearStatus();
+      resendBtn.disabled = true;
+      const error = await sendOtp(currentEmail);
+      if (error) {
+        console.error(error);
+        setStatus('error', 'Não foi possível reenviar agora. Tente de novo em instantes.');
+        resendBtn.disabled = false;
+      } else {
+        setStatus('success', 'Novo código enviado.');
+        startResendCooldown();
+      }
+    });
+
+    otpForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearStatus();
+
+      const token = otpBoxes.map(b => b.value).join('');
+      if (token.length < 6) {
+        setStatus('error', 'Digite os 6 dígitos do código.');
         return;
       }
 
-      emailAtual = email;
-      setStatus("Código enviado! Confira seu email (" + email + ") e digite o código abaixo.", "ok");
-      passoEmail.style.display = "none";
-      passoCodigo.style.display = "block";
-    } catch (e) {
-      setStatus("Erro inesperado: " + e.message, "erro");
-    } finally {
-      btnEntrar.disabled = false;
-    }
-  });
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = 'Entrando...';
 
-  btnVerificar.addEventListener("click", async () => {
-    const codigo = codigoInput.value.trim();
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: currentEmail,
+          token,
+          type: 'email'
+        });
 
-    if (!codigo) {
-      setStatus("Digite o código recebido por email.", "erro");
-      return;
-    }
-
-    btnVerificar.disabled = true;
-    setStatus("Verificando código...");
-
-    try {
-      const { data, error: erroVerify } = await supabaseClient.auth.verifyOtp({
-        email: emailAtual,
-        token: codigo,
-        type: "email"
-      });
-
-      if (erroVerify) {
-        setStatus("Código inválido ou expirado: " + erroVerify.message, "erro");
-        btnVerificar.disabled = false;
-        return;
+        if (error) {
+          console.error(error);
+          setStatus('error', 'Código inválido ou expirado. Tente novamente ou reenvie.');
+        } else {
+          setStatus('success', 'Acesso confirmado! Entrando...');
+          window.location.href = '/';
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus('error', 'Falha de conexão com o Supabase.');
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Entrar';
       }
+    });
 
-      setStatus("Login confirmado! Redirecionando...", "ok");
-
-      // marca o cookie que o middleware do Cloudflare Pages (functions/_middleware.js)
-      // vai checar antes de liberar o restante do site
-      document.cookie = "logado=1; path=/; secure; samesite=lax; max-age=3600";
-
-      window.location.href = "/";
-    } catch (e) {
-      setStatus("Erro inesperado: " + e.message, "erro");
-      btnVerificar.disabled = false;
-    }
-  });
-</script>
-
+    // Tema claro/escuro
+    const html = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+    toggle.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      toggle.textContent = next === 'dark' ? '◑' : '◐';
+    });
+  </script>
 </body>
 </html>
