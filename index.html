@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Finfortes</title>
+<style>
+  body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f1efe8; }
+  .card { background: #fff; padding: 32px; border-radius: 12px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  button { margin-top: 16px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px; background: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>entrou</h1>
+    <p>Você está autenticado no Finfortes.</p>
+    <button onclick="sair()">Sair</button>
+  </div>
+
+  <script>
+    function sair() {
+      // apaga o cookie de sessão do middleware
+      document.cookie = 'logado=1; path=/; max-age=0';
+      window.location.href = '/login.html';
+    }
+  </script>
+</body>
+</html>

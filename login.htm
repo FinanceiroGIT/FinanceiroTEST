@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Finfortes — Teste de Login</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
+  h1 { font-size: 20px; }
+  input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; font-size: 15px; }
+  button { padding: 10px 16px; font-size: 15px; cursor: pointer; }
+  #status { margin-top: 16px; font-size: 14px; white-space: pre-wrap; }
+  .ok { color: green; }
+  .erro { color: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>Finfortes — Teste de acesso</h1>
+
+<div id="passoEmail">
+  <input type="email" id="email" placeholder="seu-email@fortes.ind.br">
+  <button id="btnEntrar">Entrar</button>
+</div>
+
+<div id="status"></div>
+
+<script>
+  const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
+
+  // persistSession: false -> não guarda a sessão no localStorage, então a
+  // cada nova visita/recarregamento o usuário precisa logar de novo.
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+
+  const statusEl = document.getElementById("status");
+  const emailInput = document.getElementById("email");
+  const btnEntrar = document.getElementById("btnEntrar");
+  const passoEmail = document.getElementById("passoEmail");
+
+  function setStatus(msg, tipo) {
+    statusEl.textContent = msg;
+    statusEl.className = tipo || "";
+  }
+
+  // Se o usuário chegou aqui de volta pelo link do email, o supabase-js
+  // já detecta o código/token na URL (detectSessionInUrl, ligado por padrão)
+  // e cria a sessão sozinho. Só reagimos ao evento.
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session) {
+      passoEmail.style.display = "none";
+      setStatus("Login confirmado! Sessão criada para " + session.user.email + ".", "ok");
+      // Aqui você redireciona pro painel de verdade, ex:
+      // window.location.href = "https://finfortes.com/painel.html";
+    }
+  });
+
+  btnEntrar.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+
+    if (!email) {
+      setStatus("Digite um email.", "erro");
+      return;
+    }
+
+    btnEntrar.disabled = true;
+    setStatus("Verificando cadastro...");
+
+    try {
+      // 1. Confere se o email existe na tabela Perfil
+      const { data: perfil, error: erroPerfil } = await supabaseClient
+        .from("Perfil")
+        .select("nome, email, un")
+        .ilike("email", email)
+        .maybeSingle();
+
+      if (erroPerfil) {
+        setStatus("Erro ao consultar Perfil: " + erroPerfil.message, "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      if (!perfil) {
+        setStatus("Este email não está cadastrado no sistema. Fale com o administrador.", "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      // 2. Email existe → dispara o link de acesso (magic link).
+      // O texto do email (link vs. código de 6 dígitos) é definido no
+      // template "Magic Link" do painel do Supabase (Authentication > Email
+      // Templates), usando {{ .ConfirmationURL }} em vez de {{ .Token }}.
+      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando link de acesso...`);
+
+      const { error: erroOtp } = await supabaseClient.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false, // não permite auto-cadastro
+          emailRedirectTo: window.location.origin + window.location.pathname // volta pra esta mesma página
+        }
+      });
+
+      if (erroOtp) {
+        setStatus("Erro ao enviar o link: " + erroOtp.message, "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      setStatus("Link enviado! Confira seu email (" + email + ") e clique no link para entrar.", "ok");
+    } catch (e) {
+      setStatus("Erro inesperado: " + e.message, "erro");
+    } finally {
+      btnEntrar.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
