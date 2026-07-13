@@ -9,33 +9,39 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --brand-deep: #142348;
-    --brand-deep-2: #1c3170;
-    --brand: #2A4BD6;
-    --brand-soft: #E7EBFB;
-    --gold: #B98B29;
-    --bg: #F4F5FA;
-    --surface: #FFFFFF;
-    --ink: #10142A;
-    --ink-soft: #5B6178;
-    --line: #E2E4EE;
-    --error: #B4392F;
-    --error-bg: #FBEBE9;
-    --success: #1E7F52;
-    --success-bg: #E9F6EF;
-    --radius: 14px;
-    --shadow: 0 20px 60px -20px rgba(16, 20, 42, 0.25);
+    --navy-deep: #060D1A;
+    --navy: #0B1830;
+    --navy-soft: #13234A;
+    --brand: #2E7DF5;
+    --brand-2: #22D3C5;
+    --brand-soft: rgba(46, 125, 245, 0.12);
+    --bg: radial-gradient(1100px 700px at 15% -10%, #0F2549 0%, transparent 60%),
+          radial-gradient(900px 600px at 110% 110%, #0B2E3E 0%, transparent 55%),
+          var(--navy-deep);
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-solid: #0E1B36;
+    --ink: #EEF2FB;
+    --ink-soft: #8A93AD;
+    --line: rgba(255, 255, 255, 0.09);
+    --error: #FF6B6B;
+    --error-bg: rgba(255, 107, 107, 0.12);
+    --success: #34D399;
+    --success-bg: rgba(52, 211, 153, 0.12);
+    --radius: 16px;
+    --shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7);
   }
-  html[data-theme="dark"] {
-    --bg: #0B0E1C;
-    --surface: #12162A;
-    --ink: #EDEFF8;
-    --ink-soft: #9297AE;
-    --line: #262B45;
-    --brand-soft: #1A2247;
-    --error-bg: #3A1E1C;
-    --success-bg: #163023;
-    --shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  html[data-theme="light"] {
+    --bg: radial-gradient(1200px 800px at 20% -10%, #EAF1FF 0%, transparent 60%), #F5F7FB;
+    --surface: #FFFFFF;
+    --surface-solid: #FFFFFF;
+    --ink: #10142A;
+    --ink-soft: #626A82;
+    --line: #E3E7F0;
+    --error: #C4372C;
+    --error-bg: #FDECEA;
+    --success: #17804F;
+    --success-bg: #E7F7EF;
+    --shadow: 0 30px 80px -30px rgba(20, 30, 60, 0.25);
   }
   * { box-sizing: border-box; }
   body {
@@ -44,132 +50,66 @@
     background: var(--bg);
     color: var(--ink);
     min-height: 100vh;
-    display: grid;
-    grid-template-columns: 1.05fr 1fr;
-    transition: background .3s ease, color .3s ease;
-  }
-  @media (max-width: 860px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  }
-
-  /* ---- Brand panel ---- */
-  .brand {
-    position: relative;
-    background: linear-gradient(160deg, var(--brand-deep) 0%, var(--brand-deep-2) 100%);
-    color: #EEF1FF;
-    padding: 56px 56px 40px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden;
-  }
-  @media (max-width: 860px) {
-    .brand { padding: 32px 28px; min-height: 220px; }
-  }
-  .brand-top { position: relative; z-index: 2; }
-  .wordmark {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: clamp(30px, 4vw, 40px);
-    letter-spacing: -0.01em;
-    margin: 0 0 10px;
-  }
-  .tagline {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12.5px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #A9B3E8;
-    margin: 0;
-  }
-  .ledger {
-    position: relative;
-    z-index: 2;
-    margin-top: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 320px;
-  }
-  .ledger-row {
-    display: grid;
-    grid-template-columns: 1fr 22px 1fr;
-    align-items: center;
-    gap: 10px;
-    opacity: 0;
-    animation: rowIn .5s ease forwards;
-  }
-  .ledger-row:nth-child(1) { animation-delay: .1s; }
-  .ledger-row:nth-child(2) { animation-delay: .28s; }
-  .ledger-row:nth-child(3) { animation-delay: .46s; }
-  .ledger-row:nth-child(4) { animation-delay: .64s; }
-  @keyframes rowIn { to { opacity: 1; } }
-  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.14); }
-  .bar.match { background: linear-gradient(90deg, var(--gold), #D9AE55); }
-  .tick {
-    width: 22px; height: 22px; border-radius: 50%;
-    background: rgba(185,139,41,0.16);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--gold); font-size: 13px; font-weight: 600;
-  }
-  .brand-foot {
-    position: relative; z-index: 2;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11.5px;
-    color: #7C87BE;
-  }
-  .brand::after {
-    content: "";
-    position: absolute; inset: -20% -10% auto auto;
-    width: 480px; height: 480px;
-    background: radial-gradient(circle, rgba(185,139,41,0.14), transparent 70%);
-    z-index: 1;
-  }
-
-  /* ---- Form panel ---- */
-  .panel {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 24px;
+    padding: 24px;
+    transition: background .3s ease, color .3s ease;
   }
+
+  .mark {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 22px;
+    position: relative;
+  }
+  .mark svg { width: 100%; height: 100%; display: block; }
+
   .card {
     width: 100%;
-    max-width: 380px;
+    max-width: 372px;
+    background: var(--surface-solid);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    padding: 40px 36px 32px;
+    position: relative;
   }
-  .card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 28px;
+  html[data-theme="dark"] .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    backdrop-filter: blur(20px);
   }
+
+  .theme-toggle {
+    position: absolute;
+    top: 18px; right: 18px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .theme-toggle:hover { border-color: var(--brand); color: var(--brand); }
+
+  .card-head { text-align: center; margin-bottom: 30px; }
   .card-head h1 {
-    font-size: 21px;
+    font-size: 19px;
     font-weight: 600;
-    margin: 0 0 4px;
+    margin: 0 0 6px;
     letter-spacing: -0.01em;
   }
   .card-head p {
     margin: 0;
     color: var(--ink-soft);
-    font-size: 14px;
+    font-size: 13.5px;
   }
-  .theme-toggle {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink-soft);
-    width: 34px; height: 34px;
-    border-radius: 10px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
-    flex-shrink: 0;
-  }
-  .theme-toggle:hover { border-color: var(--brand); color: var(--brand); }
 
   label {
     display: block;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--ink-soft);
     margin-bottom: 7px;
@@ -177,12 +117,13 @@
   .email-field {
     display: flex;
     align-items: stretch;
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: rgba(255,255,255,0.02);
     overflow: hidden;
-    transition: border-color .15s ease;
+    transition: border-color .15s ease, background .15s ease;
   }
+  html[data-theme="light"] .email-field { background: #FAFBFE; }
   .email-field:focus-within { border-color: var(--brand); }
   .email-field input {
     flex: 1;
@@ -200,39 +141,41 @@
     align-items: center;
     padding: 0 14px 0 6px;
     color: var(--ink-soft);
-    font-size: 15px;
+    font-size: 14px;
     font-family: 'IBM Plex Mono', monospace;
-    background: var(--brand-soft);
+    background: rgba(255,255,255,0.03);
     border-left: 1px solid var(--line);
     white-space: nowrap;
   }
+  html[data-theme="light"] .email-suffix { background: #F0F2F8; }
   .hint {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--ink-soft);
-    margin: 8px 0 0;
+    margin: 9px 0 0;
+    line-height: 1.5;
   }
   button.submit {
     width: 100%;
-    margin-top: 20px;
+    margin-top: 22px;
     padding: 13px;
     border: none;
-    border-radius: 10px;
-    background: var(--brand);
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
     color: #fff;
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
     transition: filter .15s ease, transform .05s ease;
   }
   button.submit:hover { filter: brightness(1.08); }
   button.submit:active { transform: scale(0.99); }
-  button.submit:disabled { opacity: 0.55; cursor: not-allowed; }
+  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .status {
     margin-top: 16px;
-    padding: 12px 14px;
+    padding: 11px 13px;
     border-radius: 10px;
-    font-size: 13.5px;
+    font-size: 13px;
     display: none;
     align-items: flex-start;
     gap: 8px;
@@ -254,9 +197,9 @@
     border: none;
     padding: 0;
     color: var(--ink-soft);
-    font-size: 13px;
+    font-size: 12.5px;
     cursor: pointer;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
   .back-link:hover { color: var(--brand); }
   .otp-target {
@@ -273,30 +216,31 @@
     width: 100%;
     aspect-ratio: 1;
     text-align: center;
-    font-size: 20px;
+    font-size: 19px;
     font-family: 'IBM Plex Mono', monospace;
     font-weight: 500;
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: rgba(255,255,255,0.02);
     color: var(--ink);
     outline: none;
     transition: border-color .15s ease;
   }
+  html[data-theme="light"] .otp-boxes input { background: #FAFBFE; }
   .otp-boxes input:focus { border-color: var(--brand); }
   .resend-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-top: 16px;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--ink-soft);
   }
   .resend-link {
     background: none;
     border: none;
     color: var(--brand);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
     padding: 0;
@@ -306,44 +250,42 @@
 </head>
 <body>
 
-  <section class="brand">
-    <div class="brand-top">
-      <p class="wordmark">Finfortes</p>
-      <p class="tagline">Conciliação financeira · Fortes</p>
-      <div class="ledger">
-        <div class="ledger-row"><div class="bar" style="width:100%"></div><div class="tick">✓</div><div class="bar" style="width:100%"></div></div>
-        <div class="ledger-row"><div class="bar match" style="width:80%"></div><div class="tick">✓</div><div class="bar match" style="width:80%"></div></div>
-        <div class="ledger-row"><div class="bar" style="width:60%"></div><div class="tick">✓</div><div class="bar" style="width:60%"></div></div>
-        <div class="ledger-row"><div class="bar match" style="width:90%"></div><div class="tick">✓</div><div class="bar match" style="width:90%"></div></div>
-      </div>
+  <div class="card">
+    <button class="theme-toggle" id="themeToggle" type="button" title="Alternar tema">◐</button>
+
+    <div class="mark">
+      <svg viewBox="0 0 40 40" fill="none">
+        <path d="M20 2 L36 11 V29 L20 38 L4 29 V11 Z" stroke="url(#markGrad)" stroke-width="1.6"/>
+        <path d="M20 12 L28 16.5 V25.5 L20 30 L12 25.5 V16.5 Z" fill="url(#markGrad)" fill-opacity="0.18"/>
+        <path d="M14 20 L19 23 L27 15" stroke="url(#markGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="markGrad" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#2E7DF5"/>
+            <stop offset="1" stop-color="#22D3C5"/>
+          </linearGradient>
+        </defs>
+      </svg>
     </div>
-    <p class="brand-foot">finfortes.com</p>
-  </section>
 
-  <section class="panel">
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h1>Entrar</h1>
-          <p>Use seu e-mail corporativo Fortes</p>
+    <div class="card-head">
+      <h1>Entrar no Finfortes</h1>
+      <p>Use seu e-mail corporativo Fortes</p>
+    </div>
+
+    <div class="step active" id="stepEmail">
+      <form id="loginForm" novalidate>
+        <label for="emailLocal">E-mail</label>
+        <div class="email-field">
+          <input type="text" id="emailLocal" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+          <span class="email-suffix">@fortes.ind.br</span>
         </div>
-        <button class="theme-toggle" id="themeToggle" type="button" title="Alternar tema">◐</button>
-      </div>
+        <p class="hint">Apenas e-mails @fortes.ind.br têm acesso ao Finfortes.</p>
 
-      <div class="step active" id="stepEmail">
-        <form id="loginForm" novalidate>
-          <label for="emailLocal">E-mail</label>
-          <div class="email-field">
-            <input type="text" id="emailLocal" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="off" spellcheck="false" required>
-            <span class="email-suffix">@fortes.ind.br</span>
-          </div>
-          <p class="hint">Apenas e-mails @fortes.ind.br têm acesso ao Finfortes.</p>
+        <button type="submit" class="submit" id="submitBtn">Verificar acesso</button>
+      </form>
+    </div>
 
-          <button type="submit" class="submit" id="submitBtn">Verificar acesso</button>
-        </form>
-      </div>
-
-      <div class="step" id="stepOtp">
+    <div class="step" id="stepOtp">
         <button type="button" class="back-link" id="backBtn">← Trocar e-mail</button>
         <p class="hint" style="margin-bottom:14px;">Enviamos um código para <span class="otp-target" id="otpTarget"></span></p>
 
@@ -556,7 +498,6 @@
           setStatus('error', 'Código inválido ou expirado. Tente novamente ou reenvie.');
         } else {
           setStatus('success', 'Acesso confirmado! Entrando...');
-          localStorage.setItem('finfortes_login_at', Date.now().toString());
           window.location.href = '/';
         }
       } catch (err) {
