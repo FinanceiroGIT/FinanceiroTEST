@@ -314,7 +314,7 @@ function conciliar() {
     formData.append('pdf', pdf);
     formData.append('xlsx', xlsx);
 
-    fetch('https://api.finfortes.com/conciliar', {
+    fetch('https://finfortes.pythonanywhere.com/conciliar', {
         method: 'POST',
         body: formData
     })
