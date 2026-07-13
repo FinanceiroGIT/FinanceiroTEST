@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Finfortes — Teste de Login</title>
+<title>Finfortes — Login</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
@@ -12,15 +12,22 @@
   #status { margin-top: 16px; font-size: 14px; white-space: pre-wrap; }
   .ok { color: green; }
   .erro { color: #c0392b; }
+  #passoCodigo { display: none; }
 </style>
 </head>
 <body>
 
-<h1>Finfortes — Teste de acesso</h1>
+<h1>Finfortes — Login</h1>
 
 <div id="passoEmail">
   <input type="email" id="email" placeholder="seu-email@fortes.ind.br">
   <button id="btnEntrar">Entrar</button>
+</div>
+
+<div id="passoCodigo">
+  <p>Digite o código de 6 dígitos enviado para o seu email:</p>
+  <input type="text" id="codigo" placeholder="000000" inputmode="numeric" maxlength="6">
+  <button id="btnConfirmar">Confirmar código</button>
 </div>
 
 <div id="status"></div>
@@ -29,8 +36,6 @@
   const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
 
-  // persistSession: false -> não guarda a sessão no localStorage, então a
-  // cada nova visita/recarregamento o usuário precisa logar de novo.
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       persistSession: false,
@@ -40,25 +45,18 @@
 
   const statusEl = document.getElementById("status");
   const emailInput = document.getElementById("email");
+  const codigoInput = document.getElementById("codigo");
   const btnEntrar = document.getElementById("btnEntrar");
+  const btnConfirmar = document.getElementById("btnConfirmar");
   const passoEmail = document.getElementById("passoEmail");
+  const passoCodigo = document.getElementById("passoCodigo");
+
+  let emailAtual = "";
 
   function setStatus(msg, tipo) {
     statusEl.textContent = msg;
     statusEl.className = tipo || "";
   }
-
-  // Se o usuário chegou aqui de volta pelo link do email, o supabase-js
-  // já detecta o código/token na URL (detectSessionInUrl, ligado por padrão)
-  // e cria a sessão sozinho. Só reagimos ao evento.
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session) {
-      passoEmail.style.display = "none";
-      setStatus("Login confirmado! Sessão criada para " + session.user.email + ".", "ok");
-      // Aqui você redireciona pro painel de verdade, ex:
-      // window.location.href = "https://finfortes.com/painel.html";
-    }
-  });
 
   btnEntrar.addEventListener("click", async () => {
     const email = emailInput.value.trim().toLowerCase();
@@ -91,31 +89,69 @@
         return;
       }
 
-      // 2. Email existe → dispara o link de acesso (magic link).
-      // O texto do email (link vs. código de 6 dígitos) é definido no
-      // template "Magic Link" do painel do Supabase (Authentication > Email
-      // Templates), usando {{ .ConfirmationURL }} em vez de {{ .Token }}.
-      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando link de acesso...`);
+      // 2. Email existe -> envia o codigo de 6 digitos (sem emailRedirectTo,
+      // nao usamos link clicavel, entao scanners de seguranca corporativos
+      // nao conseguem "gastar" o codigo sozinhos)
+      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando código...`);
 
       const { error: erroOtp } = await supabaseClient.auth.signInWithOtp({
         email: email,
         options: {
-          shouldCreateUser: false, // não permite auto-cadastro
-          emailRedirectTo: window.location.origin + window.location.pathname // volta pra esta mesma página
+          shouldCreateUser: false
         }
       });
 
       if (erroOtp) {
-        setStatus("Erro ao enviar o link: " + erroOtp.message, "erro");
+        setStatus("Erro ao enviar o código: " + erroOtp.message, "erro");
         btnEntrar.disabled = false;
         return;
       }
 
-      setStatus("Link enviado! Confira seu email (" + email + ") e clique no link para entrar.", "ok");
+      emailAtual = email;
+      passoEmail.style.display = "none";
+      passoCodigo.style.display = "block";
+      setStatus("Código enviado! Confira seu email (" + email + ") e digite o código abaixo.", "ok");
     } catch (e) {
       setStatus("Erro inesperado: " + e.message, "erro");
     } finally {
       btnEntrar.disabled = false;
+    }
+  });
+
+  btnConfirmar.addEventListener("click", async () => {
+    const codigo = codigoInput.value.trim();
+
+    if (!codigo) {
+      setStatus("Digite o código recebido por email.", "erro");
+      return;
+    }
+
+    btnConfirmar.disabled = true;
+    setStatus("Confirmando código...");
+
+    try {
+      const { data, error } = await supabaseClient.auth.verifyOtp({
+        email: emailAtual,
+        token: codigo,
+        type: "email"
+      });
+
+      if (error || !data.session) {
+        setStatus("Código inválido ou expirado. Tente entrar novamente.", "erro");
+        btnConfirmar.disabled = false;
+        return;
+      }
+
+      setStatus("Login confirmado! Redirecionando...", "ok");
+
+      // marca o cookie que o middleware do Cloudflare Pages (functions/_middleware.js)
+      // vai checar antes de liberar o restante do site
+      document.cookie = "logado=1; path=/; secure; samesite=lax; max-age=3600";
+
+      window.location.href = "/";
+    } catch (e) {
+      setStatus("Erro inesperado: " + e.message, "erro");
+      btnConfirmar.disabled = false;
     }
   });
 </script>
