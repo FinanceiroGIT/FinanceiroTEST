@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Finfortes — Login</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
+  h1 { font-size: 20px; }
+  input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; font-size: 15px; }
+  button { padding: 10px 16px; font-size: 15px; cursor: pointer; }
+  #status { margin-top: 16px; font-size: 14px; white-space: pre-wrap; }
+  .ok { color: green; }
+  .erro { color: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>Finfortes — Login</h1>
+
+<div id="passoEmail">
+  <input type="email" id="email" placeholder="seu-email@fortes.ind.br">
+  <button id="btnEntrar">Entrar</button>
+</div>
+
+<div id="passoCodigo" style="display:none;">
+  <input type="text" id="codigo" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric">
+  <button id="btnVerificar">Confirmar código</button>
+</div>
+
+<div id="status"></div>
+
+<script>
+  const SUPABASE_URL = "https://skvayfwuaelxxnhctlhv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_io0L_HpoZeWfh4jlQvBN-Q_R2N9cBwb";
+
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const statusEl = document.getElementById("status");
+  const emailInput = document.getElementById("email");
+  const btnEntrar = document.getElementById("btnEntrar");
+  const passoEmail = document.getElementById("passoEmail");
+  const passoCodigo = document.getElementById("passoCodigo");
+  const codigoInput = document.getElementById("codigo");
+  const btnVerificar = document.getElementById("btnVerificar");
+
+  let emailAtual = ""; // guarda o email confirmado para usar na verificação do código
+
+  function setStatus(msg, tipo) {
+    statusEl.textContent = msg;
+    statusEl.className = tipo || "";
+  }
+
+  btnEntrar.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+
+    if (!email) {
+      setStatus("Digite um email.", "erro");
+      return;
+    }
+
+    btnEntrar.disabled = true;
+    setStatus("Verificando cadastro...");
+
+    try {
+      // 1. Confere se o email existe na tabela Perfil
+      const { data: perfil, error: erroPerfil } = await supabaseClient
+        .from("Perfil")
+        .select("nome, email, un")
+        .ilike("email", email)
+        .maybeSingle();
+
+      if (erroPerfil) {
+        setStatus("Erro ao consultar Perfil: " + erroPerfil.message, "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      if (!perfil) {
+        setStatus("Este email não está cadastrado no sistema. Fale com o administrador.", "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      // 2. Email existe → dispara o magic link.
+      // O envio em si (Supabase x Resend) é decidido no "Send Email Hook"
+      // configurado no painel do Supabase (Authentication > Hooks), não aqui no front.
+      // Aqui só chamamos o signInWithOtp normalmente.
+      setStatus(`Cadastro encontrado (${perfil.nome}). Enviando link de acesso...`);
+
+      const { error: erroOtp } = await supabaseClient.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false, // não permite auto-cadastro
+          emailRedirectTo: "https://finfortes.com/painel.html" // ajuste para sua URL de destino
+        }
+      });
+
+      if (erroOtp) {
+        setStatus("Erro ao enviar o link: " + erroOtp.message, "erro");
+        btnEntrar.disabled = false;
+        return;
+      }
+
+      emailAtual = email;
+      setStatus("Código enviado! Confira seu email (" + email + ") e digite o código abaixo.", "ok");
+      passoEmail.style.display = "none";
+      passoCodigo.style.display = "block";
+    } catch (e) {
+      setStatus("Erro inesperado: " + e.message, "erro");
+    } finally {
+      btnEntrar.disabled = false;
+    }
+  });
+
+  btnVerificar.addEventListener("click", async () => {
+    const codigo = codigoInput.value.trim();
+
+    if (!codigo) {
+      setStatus("Digite o código recebido por email.", "erro");
+      return;
+    }
+
+    btnVerificar.disabled = true;
+    setStatus("Verificando código...");
+
+    try {
+      const { data, error: erroVerify } = await supabaseClient.auth.verifyOtp({
+        email: emailAtual,
+        token: codigo,
+        type: "email"
+      });
+
+      if (erroVerify) {
+        setStatus("Código inválido ou expirado: " + erroVerify.message, "erro");
+        btnVerificar.disabled = false;
+        return;
+      }
+
+      setStatus("Login confirmado! Redirecionando...", "ok");
+
+      // marca o cookie que o middleware do Cloudflare Pages (functions/_middleware.js)
+      // vai checar antes de liberar o restante do site
+      document.cookie = "logado=1; path=/; secure; samesite=lax; max-age=3600";
+
+      window.location.href = "/index.html";
+    } catch (e) {
+      setStatus("Erro inesperado: " + e.message, "erro");
+      btnVerificar.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
