@@ -556,6 +556,7 @@
           setStatus('error', 'Código inválido ou expirado. Tente novamente ou reenvie.');
         } else {
           setStatus('success', 'Acesso confirmado! Entrando...');
+          localStorage.setItem('finfortes_login_at', Date.now().toString());
           window.location.href = '/';
         }
       } catch (err) {
