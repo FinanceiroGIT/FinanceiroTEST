@@ -72,6 +72,8 @@ function startSessionCountdown() {
 
   const badge = injectTimerBadge();
 
+  let interval;
+
   const tick = () => {
     const remaining = SESSION_LIMIT_MS - (Date.now() - loginAt);
     if (remaining <= 0) {
@@ -91,7 +93,7 @@ function startSessionCountdown() {
   };
 
   tick();
-  const interval = setInterval(tick, 1000);
+  interval = setInterval(tick, 1000);
 }
 
 if (session) {
