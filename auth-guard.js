@@ -87,6 +87,7 @@ function startSessionCountdown() {
 
 if (session) {
   startSessionCountdown();
+  document.documentElement.classList.remove('finfortes-checking');
 }
 
 // Exporta o client pra a página poder reusar (evita criar múltiplas instâncias)
