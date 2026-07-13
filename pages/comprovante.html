@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Comprovante Sicoob - PIX</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #fff;
+    margin: 0;
+    padding: 25px 15px;
+    color: #111;
+    font-size: 13px;
+  }
+  .receipt {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #222;
+    margin-bottom: 16px;
+  }
+  .bank-header {
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1.4;
+    margin-bottom: 14px;
+  }
+  .doc-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .doc-title-row .title {
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .section-label {
+    font-weight: bold;
+    margin-top: 12px;
+    margin-bottom: 2px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 175px 1fr;
+    padding: 3px 0 3px 14px;
+    line-height: 1.4;
+  }
+  .row .value.strong {
+    font-weight: bold;
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 20px;
+  }
+  .status-ok {
+    color: #1c7c31;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="receipt">
+
+  <div class="top-bar">
+    <span id="dataHoraTopo"></span>
+    <span>Sicoob | Internet Banking</span>
+  </div>
+
+  <div class="bank-header">
+    SICOOB - SISTEMA DE COOPERATIVAS DE CRÉDITO DO BRASIL<br>
+    SISBR - SISTEMA DE INFORMÁTICA DO SICOOB
+  </div>
+
+  <div class="doc-title-row">
+    <span id="dataPagamentoTitulo"></span>
+    <span class="title">COMPROVANTE DE EFETIVAÇÃO DE PAGAMENTO PIX</span>
+    <span id="horaTitulo"></span>
+  </div>
+
+  <div class="row" style="padding-left:0; grid-template-columns:189px 1fr;">
+    <span class="section-label" style="margin:0;">Tipo Pagamento:</span>
+    <span>Pix via chave</span>
+  </div>
+
+  <div class="section-label">Pagador:</div>
+  <div class="row">
+    <span>Instituição:</span>
+    <span>COOPERATIVA DE CRÉDITO SUL-SERRANA DO ESPÍRITO SANTO</span>
+  </div>
+  <div class="row">
+    <span>Nome:</span>
+    <span>FORTES ENGENHARIA LTDA</span>
+  </div>
+  <div class="row">
+    <span>CPF/CNPJ:</span>
+    <span>**.677.132/0001-**</span>
+  </div>
+
+  <div class="section-label">Destinatário:</div>
+  <div class="row">
+    <span>Nome:</span>
+    <span id="destFavorecido"></span>
+  </div>
+  <div class="row">
+    <span>CPF/CNPJ:</span>
+    <span id="destCpfCnpj"></span>
+  </div>
+  <div class="row">
+    <span>Instituição/Banco:</span>
+    <span id="destBanco"></span>
+  </div>
+
+  <div class="section-label">Dados do pagamento:</div>
+  <div class="row">
+    <span>Data do pagamento:</span>
+    <span id="dataPagamento"></span>
+  </div>
+  <div class="row">
+    <span>Valor:</span>
+    <span class="value strong" id="valorPagamento"></span>
+  </div>
+  <div class="row">
+    <span>ID Transação:</span>
+    <span id="idTransacao"></span>
+  </div>
+  <div class="row">
+    <span>Situação do pagamento:</span>
+    <span class="status-ok">Finalizado com sucesso</span>
+  </div>
+
+  <div class="footer">
+    OUVIDORIA SICOOB : 08007250996
+  </div>
+
+</div>
+
+<script>
+  // ===== Dados vindos do banco de dados (JSON) =====
+  const conciliado = {
+    "comprovante": 0,
+    "dados": {
+      "banco": "CAIXA ECONOMICA FEDERAL",
+      "cnpj_cpf": "***.391.013-**",
+      "favorecido": "NILSON CARLOS MONTEIRO DA SILVA",
+      "id_transacao": "E008153192026060212126FnmK16zDOi",
+      "identificador": null,
+      "pagamento": "02/06/2026 09:12:31",
+      "valor": "704,00"
+    }
+  };
+
+  const d = conciliado.dados;
+
+  document.getElementById("destFavorecido").textContent = d.favorecido;
+  document.getElementById("destCpfCnpj").textContent = d.cnpj_cpf;
+  document.getElementById("destBanco").textContent = d.banco;
+  document.getElementById("dataPagamento").textContent = d.pagamento;
+  document.getElementById("valorPagamento").textContent = "R$ " + d.valor;
+  document.getElementById("idTransacao").textContent = d.id_transacao;
+
+  // Data/hora atual = momento em que o comprovante foi gerado
+  const agora = new Date();
+
+  const dataTopo = agora.toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "2-digit"
+  });
+  const horaTopo = agora.toLocaleTimeString("pt-BR", {
+    hour: "2-digit", minute: "2-digit"
+  });
+  document.getElementById("dataHoraTopo").textContent = `${dataTopo}, ${horaTopo}`;
+
+  const dataTitulo = agora.toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric"
+  });
+  document.getElementById("dataPagamentoTitulo").textContent = dataTitulo;
+
+  const horaTitulo = agora.toLocaleTimeString("pt-BR", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  });
+  document.getElementById("horaTitulo").textContent = horaTitulo;
+</script>
+
+</body>
+</html>
