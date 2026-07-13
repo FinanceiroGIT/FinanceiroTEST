@@ -469,6 +469,12 @@ async function buscar() {
             }
         } else if (campo === 'docto') {
             filtros.push(`numero_documento.ilike.%${q}%`);
+        } else if (campo === 'un') {
+            // un e coluna inteira: prefixo e filtrado no cliente (abaixo). Aceita digitar com ou sem mascara (ex: "0654-00")
+            if (!digitsQ) {
+                render([]);
+                return;
+            }
         } else if (campo === 'cpf') {
             if (digitsQ.length >= 3) {
                 filtros.push(`cpf.ilike.%${digitsQ}%`);
@@ -500,7 +506,7 @@ async function buscar() {
             if (isValor)          filtros.push(`valor_erp.eq.${numQ}`);
         }
 
-        if (campo !== 'ap') {
+        if (campo !== 'ap' && campo !== 'un') {
             if (filtros.length > 0) {
                 query = query.or(filtros.join(','));
             } else if (campo !== 'todos') {
@@ -525,6 +531,12 @@ async function buscar() {
     // Filtro de AP por prefixo no cliente (ap e coluna inteira, entao o "comeca com" nao da pra fazer via ilike no banco)
     if (campo === 'ap' && q) {
         resultado = resultado.filter(r => r.ap !== null && r.ap !== undefined && String(r.ap).startsWith(q));
+    }
+
+    // Filtro de UN por prefixo no cliente (un tambem e coluna inteira; ignora mascara/zeros a esquerda digitados, ex: "0654-00" -> "654")
+    if (campo === 'un' && q) {
+        const digitsQ = q.replace(/\D/g, '').replace(/^0+/, '') || '0';
+        resultado = resultado.filter(r => r.un !== null && r.un !== undefined && String(r.un).startsWith(digitsQ));
     }
 
     // Filtro de data no cliente — compara como numero YYYYMMDD, sem timezone

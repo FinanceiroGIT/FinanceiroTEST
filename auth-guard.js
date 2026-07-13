@@ -38,17 +38,24 @@ function injectTimerBadge() {
   badge.id = 'finfortesSessionTimer';
   Object.assign(badge.style, {
     position: 'fixed',
-    top: '14px',
+    top: '28px',
     right: '16px',
     zIndex: '9999',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
     fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-    fontSize: '12.5px',
-    fontWeight: '600',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    background: 'rgba(20, 35, 72, 0.9)',
-    color: '#EEF1FF',
-    letterSpacing: '0.03em',
+    fontSize: '10px',
+    fontWeight: '500',
+    padding: '4px 9px',
+    borderRadius: '999px',
+    background: 'rgba(255, 255, 255, 0.6)',
+    border: '1px solid rgba(31, 45, 61, 0.08)',
+    color: '#8a98a8',
+    letterSpacing: '0.02em',
+    boxShadow: '0 1px 3px rgba(20, 35, 72, 0.06)',
+    backdropFilter: 'blur(6px)',
+    transition: 'background .25s ease, color .25s ease, border-color .25s ease',
     pointerEvents: 'none'
   });
   document.body.appendChild(badge);
@@ -75,9 +82,11 @@ function startSessionCountdown() {
     const totalSeconds = Math.ceil(remaining / 1000);
     const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
     const ss = String(totalSeconds % 60).padStart(2, '0');
-    badge.textContent = `Sessão expira em ${mm}:${ss}`;
+    badge.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.6;flex-shrink:0;"></span>Sessão expira em ${mm}:${ss}`;
     if (remaining <= 60000) {
-      badge.style.background = 'rgba(180, 57, 47, 0.92)'; // alerta nos últimos 60s
+      badge.style.background = 'rgba(212, 58, 85, 0.1)'; // alerta discreto nos últimos 60s
+      badge.style.borderColor = 'rgba(212, 58, 85, 0.25)';
+      badge.style.color = '#b23a52';
     }
   };
 

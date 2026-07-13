@@ -247,6 +247,18 @@
     padding: 0;
   }
   .resend-link:disabled { color: var(--ink-soft); cursor: not-allowed; }
+
+  .admin-link-row { text-align: center; margin-top: 14px; }
+  .admin-link {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .admin-link:hover { color: var(--brand); }
 </style>
 </head>
 <body>
@@ -283,6 +295,23 @@
         <p class="hint">Apenas e-mails @fortes.ind.br têm acesso ao Finfortes.</p>
 
         <button type="submit" class="submit" id="submitBtn">Verificar acesso</button>
+      </form>
+      <div class="admin-link-row">
+        <button type="button" class="admin-link" id="adminLinkBtn">Acesso administrativo</button>
+      </div>
+    </div>
+
+    <div class="step" id="stepAdmin">
+      <button type="button" class="back-link" id="backAdminBtn">← Trocar e-mail</button>
+      <form id="adminForm" novalidate>
+        <label for="emailAdminLocal">E-mail administrativo</label>
+        <div class="email-field">
+          <input type="text" id="emailAdminLocal" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+          <span class="email-suffix">@fortes.ind.br</span>
+        </div>
+        <p class="hint">Acesso restrito a administradores do Finfortes.</p>
+
+        <button type="submit" class="submit" id="adminSubmitBtn">Verificar</button>
       </form>
     </div>
 
@@ -329,6 +358,12 @@
 
     const stepEmail = document.getElementById('stepEmail');
     const stepOtp = document.getElementById('stepOtp');
+    const stepAdmin = document.getElementById('stepAdmin');
+    const adminLinkBtn = document.getElementById('adminLinkBtn');
+    const backAdminBtn = document.getElementById('backAdminBtn');
+    const adminForm = document.getElementById('adminForm');
+    const emailAdminLocal = document.getElementById('emailAdminLocal');
+    const adminSubmitBtn = document.getElementById('adminSubmitBtn');
     const otpTarget = document.getElementById('otpTarget');
     const otpForm = document.getElementById('otpForm');
     const otpBoxes = [...document.querySelectorAll('#otpBoxes input')];
@@ -348,21 +383,31 @@
       statusBox.textContent = '';
     }
 
+    function showStep(step) {
+      [stepEmail, stepAdmin, stepOtp].forEach(s => s.classList.remove('active'));
+      step.classList.add('active');
+    }
+
     function goToOtpStep(email) {
       currentEmail = email;
       otpTarget.textContent = email;
-      stepEmail.classList.remove('active');
-      stepOtp.classList.add('active');
+      showStep(stepOtp);
       otpBoxes.forEach(b => b.value = '');
       otpBoxes[0].focus();
       startResendCooldown();
     }
 
     function goToEmailStep() {
-      stepOtp.classList.remove('active');
-      stepEmail.classList.add('active');
+      showStep(stepEmail);
       clearStatus();
       if (resendTimer) clearInterval(resendTimer);
+    }
+
+    function goToAdminStep() {
+      showStep(stepAdmin);
+      clearStatus();
+      emailAdminLocal.value = '';
+      emailAdminLocal.focus();
     }
 
     function startResendCooldown(seconds = 30) {
@@ -390,6 +435,53 @@
     // Bloqueia qualquer tentativa de digitar "@algumacoisa" no campo — só o nome de usuário é editável
     emailLocal.addEventListener('input', () => {
       emailLocal.value = emailLocal.value.replace(/[@\s]/g, '');
+    });
+    emailAdminLocal.addEventListener('input', () => {
+      emailAdminLocal.value = emailAdminLocal.value.replace(/[@\s]/g, '');
+    });
+
+    adminLinkBtn.addEventListener('click', goToAdminStep);
+    backAdminBtn.addEventListener('click', goToEmailStep);
+
+    adminForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearStatus();
+
+      const local = emailAdminLocal.value.trim();
+      if (!local) {
+        setStatus('error', 'Digite o nome de usuário administrativo.');
+        return;
+      }
+
+      const email = (local + DOMAIN).toLowerCase();
+
+      adminSubmitBtn.disabled = true;
+      adminSubmitBtn.textContent = 'Verificando...';
+
+      try {
+        const { data, error } = await supabase
+          .from('Perfil')
+          .select('nome, email, is_admin')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (error) {
+          console.error(error);
+          setStatus('error', 'Não foi possível verificar o e-mail agora. Tente novamente em instantes.');
+        } else if (data && data.is_admin === true) {
+          sessionStorage.setItem('finfortes_admin_email', email);
+          setStatus('success', `Acesso confirmado, ${data.nome.split(' ')[0]}. Redirecionando...`);
+          window.location.href = '/pages/admin-perfil.html';
+        } else {
+          setStatus('error', 'Acesso restrito a administradores.');
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus('error', 'Falha de conexão com o Supabase.');
+      } finally {
+        adminSubmitBtn.disabled = false;
+        adminSubmitBtn.textContent = 'Verificar';
+      }
     });
 
     form.addEventListener('submit', async (e) => {
