@@ -623,10 +623,10 @@
     }
   });
 
-  // Guarda de acesso: só entra quem tem sessão real do Supabase Auth e é admin (is_admin = true) na tabela Perfil.
+  // Guarda de acesso: só entra quem foi confirmado como admin (is_admin = true) em /login.
   async function verificarAcessoAdmin() {
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError || !session || !session.user?.email) {
+    const emailAdmin = sessionStorage.getItem('finfortes_admin_email');
+    if (!emailAdmin) {
       window.location.replace('/login');
       return false;
     }
@@ -634,11 +634,11 @@
     const { data, error } = await supabaseClient
       .from('Perfil')
       .select('is_admin')
-      .ilike('email', session.user.email)
+      .ilike('email', emailAdmin)
       .maybeSingle();
 
     if (error || !data || data.is_admin !== true) {
-      await supabaseClient.auth.signOut();
+      sessionStorage.removeItem('finfortes_admin_email');
       window.location.replace('/login');
       return false;
     }

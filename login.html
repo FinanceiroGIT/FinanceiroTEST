@@ -491,6 +491,8 @@
           return;
         }
 
+        await supabase.auth.signOut();
+        sessionStorage.setItem('finfortes_admin_email', email);
         setStatus('success', `Acesso confirmado, ${data.nome.split(' ')[0]}. Redirecionando...`);
         window.location.href = '/pages/admin-perfil.html';
       } catch (err) {
