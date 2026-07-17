@@ -3,6 +3,7 @@ from flask_cors import CORS
 import pdfplumber
 import re
 import os
+import json
 from datetime import datetime, date
 from openpyxl import load_workbook
 from rapidfuzz import fuzz
@@ -66,18 +67,27 @@ def conciliar(comprovante, erp):
 
 
 def tentar_match_agrupado(comprovante, erps, erp_usado=None):
-    """Agrupa os ERPs pelo mesmo AP (ou, se não tiver AP, por cpf/cnpj+pagamento)
-    e soma os valores. Se a soma de um grupo bater com o valor do comprovante
-    e nome/doc/data também baterem, considera conciliado."""
+    """Agrupa os ERPs pelo mesmo numlancto (ou, se não tiver, pelo mesmo AP;
+    ou, se não tiver nenhum dos dois, por cpf/cnpj+pagamento) e soma os
+    valores. Se a soma de um grupo bater com o valor do comprovante e
+    nome/doc/data também baterem, considera conciliado.
+
+    numlancto vem primeiro porque um mesmo lançamento pode ter vários APs
+    diferentes que juntos formam um único pagamento (ex.: lançamento com 7
+    APs distintos cuja soma bate com um único comprovante) — nesse caso
+    agrupar só por AP deixaria cada item isolado."""
 
     erp_usado = erp_usado or set()
     grupos = {}
     for j, erp in enumerate(erps):
         if j in erp_usado:
             continue
-        chave = erp.get("AP")
-        if chave is None:
-            chave = (erp.get("cpf") or erp.get("cnpj"), erp.get("pagamento"))
+        if erp.get("numlancto") is not None:
+            chave = ("numlancto", erp.get("numlancto"))
+        elif erp.get("AP") is not None:
+            chave = ("AP", erp.get("AP"))
+        else:
+            chave = ("doc_pagamento", erp.get("cpf") or erp.get("cnpj"), erp.get("pagamento"))
         grupos.setdefault(chave, []).append(j)
 
     for chave, indices in grupos.items():
@@ -91,11 +101,19 @@ def tentar_match_agrupado(comprovante, erps, erp_usado=None):
             (comprovante.get("favorecido") or "").upper(),
             (primeiro.get("favorecido") or "").upper(),
         )
-        doc_ok = doc_compativel_global(
-            comprovante.get("cnpj_cpf"), primeiro.get("cpf") or primeiro.get("cnpj")
-        )
         data_ok = (comprovante.get("pagamento") or "")[:10] == (primeiro.get("pagamento") or "")[:10]
         valor_ok = valor_float(comprovante.get("valor")) == round(soma, 2)
+
+        if chave[0] == "numlancto":
+            # Baixa lançada nota a nota (CNPJ de cada fornecedor); quem
+            # recebe o PIX é o responsável pela baixa, não bate com o doc
+            # de nenhuma linha individual. O numlancto já garante que as
+            # linhas pertencem ao mesmo pagamento, então valor+data bastam.
+            doc_ok = True
+        else:
+            doc_ok = doc_compativel_global(
+                comprovante.get("cnpj_cpf"), primeiro.get("cpf") or primeiro.get("cnpj")
+            )
 
         if doc_ok and valor_ok and data_ok:
             return {
@@ -104,6 +122,39 @@ def tentar_match_agrupado(comprovante, erps, erp_usado=None):
                 "score_nome": nome_score,
             }
 
+    return None
+
+
+NOME_SCORE_MINIMO_NOMINAL = 90
+
+
+def tentar_match_nominal(comprovante, erps, indices_livres):
+    """Última tentativa, só roda no que sobrou depois do match normal e do
+    agrupado. Algumas baixas são lançadas em nome do fornecedor (AGN_ST_NOME),
+    mas quem de fato recebeu o pagamento fica registrado em CHEQ_ST_NOMINAL —
+    aqui a identidade é confirmada pelo nome (contra o nominal) em vez de
+    cpf/cnpj, então exige nome+valor+data batendo."""
+
+    melhor = None
+    for j in indices_livres:
+        erp = erps[j]
+        nominal = erp.get("nominal")
+        if not nominal:
+            continue
+
+        nome_score = fuzz.token_set_ratio(
+            (comprovante.get("favorecido") or "").upper(),
+            str(nominal).upper(),
+        )
+        valor_ok = valor_float(comprovante.get("valor")) == valor_float(erp.get("valor"))
+        data_ok = (comprovante.get("pagamento") or "")[:10] == (erp.get("pagamento") or "")[:10]
+
+        if nome_score >= NOME_SCORE_MINIMO_NOMINAL and valor_ok and data_ok:
+            if melhor is None or nome_score > melhor[1]:
+                melhor = (j, nome_score)
+
+    if melhor:
+        return {"erp": melhor[0], "score_nome": melhor[1]}
     return None
 
 
@@ -194,6 +245,27 @@ def conciliar_listas(comprovantes, erps):
             },
         })
 
+    # Terceira tentativa: só no que sobrou dos dois passos acima, tentando
+    # pelo nome de quem recebeu de fato (CHEQ_ST_NOMINAL) + valor + data.
+    ainda_nao_conciliados = []
+    for item in nao_conciliados:
+        indices_livres = [j for j in range(len(erps)) if j not in erp_usado]
+        nominal_match = tentar_match_nominal(item["comprovante"], erps, indices_livres)
+
+        if nominal_match:
+            j = nominal_match["erp"]
+            erp_usado.add(j)
+            conciliados.append({
+                "erp": j,
+                "via": "nominal",
+                "score_nome": nominal_match["score_nome"],
+                "dados": item["comprovante"],
+                "erp_dados": erps[j],
+            })
+        else:
+            ainda_nao_conciliados.append(item)
+
+    nao_conciliados = ainda_nao_conciliados
     erp_nao_conciliados = [erps[j] for j in range(len(erps)) if j not in erp_usado]
 
     return {
@@ -219,6 +291,8 @@ MAPEAMENTO_COLUNAS = {
     "CHEQ_TPD_ST_CODIGO": "Forma de Pagamento",
     "CPA_IN_AP": "AP",
     "FPA_TPD_ST_CODIGO": "Tipo de Documento",
+    "CHEQ_MOV_IN_NUMLANCTO": "numlancto",
+    "CHEQ_ST_NOMINAL": "nominal",
 }
 
 NOME_ABA = None  # ex: "Gd_Dados"
@@ -633,8 +707,62 @@ def conciliar_rota():
     return jsonify(resultado)
 
 
+def _rodar_teste_local():
+    """Modo de teste local: em vez de subir o Flask, abre o Explorer do Windows
+    pra você escolher o PDF e o XLSX, roda a conciliação direto e salva o
+    resultado em 'resultado_conciliacao.json' ao lado deste arquivo."""
+    import tkinter as tk
+    from tkinter import filedialog
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    janela = tk.Tk()
+    janela.withdraw()
+
+    caminho_pdf = filedialog.askopenfilename(
+        title="Selecione o PDF do comprovante",
+        initialdir=base_dir,
+        filetypes=[("PDF", "*.pdf")],
+    )
+    if not caminho_pdf:
+        print("Nenhum PDF selecionado.")
+        return
+
+    caminho_xlsx = filedialog.askopenfilename(
+        title="Selecione a planilha do ERP",
+        initialdir=base_dir,
+        filetypes=[("Excel", "*.xlsx")],
+    )
+    if not caminho_xlsx:
+        print("Nenhum XLSX selecionado.")
+        return
+
+    janela.destroy()
+
+    print(f"PDF:   {os.path.basename(caminho_pdf)}")
+    print(f"Excel: {os.path.basename(caminho_xlsx)}")
+
+    comprovantes = extrair_comprovantes(caminho_pdf)
+    if not comprovantes:
+        print("Layout do PDF não reconhecido ou nenhum comprovante encontrado.")
+        return
+
+    erp = converter_xlsx_para_json(caminho_xlsx)
+    resultado = conciliar_listas(comprovantes, erp)
+
+    print(f"\nConciliados: {len(resultado['conciliados'])}")
+    print(f"Não conciliados: {len(resultado['nao_conciliados'])}")
+    print(f"ERP sobrando: {len(resultado['erp_nao_conciliados'])}")
+
+    caminho_saida = os.path.join(base_dir, "resultado_conciliacao.json")
+    with open(caminho_saida, "w", encoding="utf-8") as f:
+        json.dump(resultado, f, indent=2, ensure_ascii=False, default=str)
+
+    print(f"\nResultado salvo em: {caminho_saida}")
+
+
 # Usado só se você rodar "python app.py" localmente pra testar.
 # No PythonAnywhere, quem sobe o Flask é o arquivo WSGI (from app import app as application),
 # então este bloco abaixo simplesmente não é executado lá — pode deixar como está.
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    _rodar_teste_local()
