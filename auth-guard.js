@@ -34,13 +34,20 @@ async function forceLogout() {
 }
 
 function injectTimerBadge() {
-  const badge = document.createElement('div');
-  badge.id = 'finfortesSessionTimer';
-  Object.assign(badge.style, {
+  const wrap = document.createElement('div');
+  Object.assign(wrap.style, {
     position: 'fixed',
     top: '28px',
     right: '16px',
     zIndex: '9999',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px'
+  });
+
+  const badge = document.createElement('div');
+  badge.id = 'finfortesSessionTimer';
+  Object.assign(badge.style, {
     display: 'flex',
     alignItems: 'center',
     gap: '5px',
@@ -58,7 +65,43 @@ function injectTimerBadge() {
     transition: 'background .25s ease, color .25s ease, border-color .25s ease',
     pointerEvents: 'none'
   });
-  document.body.appendChild(badge);
+
+  const logoutBtn = document.createElement('button');
+  logoutBtn.type = 'button';
+  logoutBtn.id = 'finfortesLogoutBtn';
+  logoutBtn.title = 'Encerrar sessão';
+  logoutBtn.textContent = 'Sair';
+  Object.assign(logoutBtn.style, {
+    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+    fontSize: '10px',
+    fontWeight: '600',
+    padding: '4px 10px',
+    borderRadius: '999px',
+    background: 'rgba(255, 255, 255, 0.6)',
+    border: '1px solid rgba(31, 45, 61, 0.08)',
+    color: '#5a6b7d',
+    letterSpacing: '0.02em',
+    boxShadow: '0 1px 3px rgba(20, 35, 72, 0.06)',
+    backdropFilter: 'blur(6px)',
+    cursor: 'pointer'
+  });
+  logoutBtn.addEventListener('mouseenter', () => {
+    logoutBtn.style.background = 'rgba(212, 58, 85, 0.1)';
+    logoutBtn.style.borderColor = 'rgba(212, 58, 85, 0.25)';
+    logoutBtn.style.color = '#b23a52';
+  });
+  logoutBtn.addEventListener('mouseleave', () => {
+    logoutBtn.style.background = 'rgba(255, 255, 255, 0.6)';
+    logoutBtn.style.borderColor = 'rgba(31, 45, 61, 0.08)';
+    logoutBtn.style.color = '#5a6b7d';
+  });
+  logoutBtn.addEventListener('click', () => {
+    forceLogout();
+  });
+
+  wrap.appendChild(badge);
+  wrap.appendChild(logoutBtn);
+  document.body.appendChild(wrap);
   return badge;
 }
 
