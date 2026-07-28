@@ -106,7 +106,7 @@
     </main>
 
     <div id="startModal" class="modal-overlay hidden">
-        <div class="modal-box modal-conciliacao">
+        <div id="modalConciliacaoBox" class="modal-box modal-conciliacao">
             <button class="modal-close" onclick="fecharModal()" aria-label="Fechar">&times;</button>
 
             <div class="modal-header">
@@ -164,6 +164,13 @@
                     </div>
                 </div>
 
+                <div id="manualLinkBar" class="manual-link-bar hidden">
+                    <button type="button" class="btn-manual-link" onclick="abrirConciliacaoManual()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        Conciliar Manualmente
+                    </button>
+                </div>
+
                 <div id="logBox" class="log-box" style="display:none;">
                     <h3>LOG - extraído do PDF</h3>
                     <pre id="logPdf"></pre>
@@ -194,12 +201,49 @@
                         <span id="jsonEnvioContagem" class="json-file-count"></span>
                     </div>
                 </div>
+                <p id="pendenciasEnvioInfo" class="manual-hint manual-hint-warn hidden"></p>
                 <div class="modal-actions">
                     <button class="btn-modal-cancel" onclick="toggleLogEnvio()">LOG</button>
                     <button id="btnEnviarSupabase" class="btn-modal-confirm" onclick="enviarParaSupabase()">Enviar para Supabase</button>
                 </div>
                 <p id="statusEnvio" class="modal-resultado"></p>
                 <pre id="jsonEnvio" class="json-preview hidden"></pre>
+            </div>
+
+            <div id="stepManual" class="modal-step hidden">
+                <button class="btn-back" onclick="fecharConciliacaoManual()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    Voltar
+                </button>
+                <h3>Conciliar Manualmente</h3>
+                <p class="manual-hint">Selecione um comprovante e um lançamento do ERP e clique em "Vincular" para juntá-los no lote de envio.</p>
+
+                <div class="manual-columns">
+                    <div class="manual-col">
+                        <div class="manual-col-header">
+                            <span>Comprovantes sem par</span>
+                            <span id="manualCountComprovantes" class="manual-col-count">0</span>
+                        </div>
+                        <div id="manualListComprovantes" class="manual-list"></div>
+                    </div>
+                    <div class="manual-col">
+                        <div class="manual-col-header">
+                            <span>ERP sem comprovante</span>
+                            <span id="manualCountErp" class="manual-col-count">0</span>
+                        </div>
+                        <div id="manualListErp" class="manual-list"></div>
+                    </div>
+                </div>
+
+                <div class="manual-actions">
+                    <span id="manualSelecaoResumo" class="manual-selecao-resumo"></span>
+                    <button id="btnVincularManual" class="btn-modal-confirm" onclick="vincularManual()" disabled>Vincular selecionados</button>
+                </div>
+
+                <div id="manualLinkedSection" class="manual-linked-section hidden">
+                    <h4>Vinculados manualmente</h4>
+                    <div id="manualLinkedList" class="manual-linked-list"></div>
+                </div>
             </div>
         </div>
     </div>

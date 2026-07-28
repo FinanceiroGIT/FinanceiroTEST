@@ -38,6 +38,12 @@ let linhasAtuais = null;
 let logVisivel = false;
 let logEnvioVisivel = false;
 
+// Conciliacao manual: selecao nas listas de sobras do resultado atual.
+// Comprovante e no maximo 1 por vez; ERP aceita varios (1 comprovante pode cobrir varios lancamentos do ERP).
+let manualSelComprovante = null;
+let manualSelErps = new Set();
+let manualIdCounter = 0;
+
 // Selecao acumulada entre buscas: nao eh resetada quando o usuario faz uma nova busca,
 // so quando ele desmarca o item, clica em "Limpar seleção" ou remove pelo painel.
 // Chave = id (string) -> { id, favorecido }, usado pro download em lote e pro painel de selecionados.
@@ -98,38 +104,6 @@ function montarLinhaConciliado(item, grupo) {
     return linhas;
 }
 
-function montarLinhaNaoConciliado(item, grupo) {
-    const comprovante = item.comprovante || {};
-    return {
-        grupo,
-        motivos: item.motivos ?? null,
-        favorecido: comprovante.favorecido ?? null,
-        cnpj_cpf: comprovante.cnpj_cpf ?? null,
-        pagamento_comprovante: comprovante.pagamento ?? null,
-        valor_comprovante: comprovante.valor ?? null,
-        id_transacao: comprovante.id_transacao ?? null,
-        banco_comprovante: comprovante.banco ?? null,
-    };
-}
-
-function montarLinhaErpNaoConciliado(item, grupo) {
-    return {
-        grupo,
-        un: item.UN ?? null,
-        favorecido_erp: item.favorecido ?? null,
-        cnpj: item.cnpj ?? null,
-        cpf: item.cpf ?? null,
-        numero_documento: item['Nº Documento'] ?? null,
-        pagamento_erp: item.pagamento ?? null,
-        banco: item.Banco ?? null,
-        conta_bancaria: item['Conta Bancaria'] ?? null,
-        valor_erp: valorParaNumero(item.valor),
-        forma_pagamento: item['Forma de Pagamento'] ?? null,
-        ap: item.AP ?? null,
-        tipo_documento: item['Tipo de Documento'] ?? null,
-    };
-}
-
 function normalizarLinha(linha) {
     const normalizada = {};
     for (const coluna of COLUNAS_TABELA) {
@@ -138,17 +112,13 @@ function normalizarLinha(linha) {
     return normalizada;
 }
 
+// So os pares conciliados (automatico ou manual) viram linha pro Supabase: a tabela e o "arquivo verdade",
+// entao pendencias sem par (nao_conciliados / erp_nao_conciliados) ficam de fora do lote enviado.
 function extrairLinhas(dadosCompletos, nomeArquivo) {
     let linhas = [];
 
     for (const item of dadosCompletos.conciliados || []) {
         linhas = linhas.concat(montarLinhaConciliado(item, 'conciliados'));
-    }
-    for (const item of dadosCompletos.nao_conciliados || []) {
-        linhas.push(montarLinhaNaoConciliado(item, 'nao_conciliados'));
-    }
-    for (const item of dadosCompletos.erp_nao_conciliados || []) {
-        linhas.push(montarLinhaErpNaoConciliado(item, 'erp_nao_conciliados'));
     }
 
     return linhas.map(linha => normalizarLinha({ ...linha, arquivo: nomeArquivo }));
@@ -184,6 +154,11 @@ function resetModal() {
     logEnvioVisivel = false;
     ultimoResultado = null;
     linhasAtuais = null;
+    document.getElementById('stepManual').classList.add('hidden');
+    document.getElementById('modalConciliacaoBox').classList.remove('modal-wide');
+    document.getElementById('manualLinkBar').classList.add('hidden');
+    manualSelComprovante = null;
+    manualSelErps.clear();
     voltarParaUpload();
 }
 
@@ -214,6 +189,17 @@ async function irParaEnvio() {
     document.getElementById('jsonEnvio').innerText = JSON.stringify(linhasAtuais, null, 2);
     document.getElementById('jsonEnvio').classList.add('hidden');
     document.getElementById('statusEnvio').innerText = '';
+
+    const pendComp = ultimoResultado.nao_conciliados.length;
+    const pendErp = ultimoResultado.erp_nao_conciliados.length;
+    const infoPendencias = document.getElementById('pendenciasEnvioInfo');
+    if (pendComp || pendErp) {
+        infoPendencias.innerText = `⚠️ ${pendComp} comprovante(s) e ${pendErp} lançamento(s) do ERP continuam sem par e não serão enviados. Volte e use "Conciliar Manualmente" se quiser incluí-los.`;
+        infoPendencias.classList.remove('hidden');
+    } else {
+        infoPendencias.classList.add('hidden');
+    }
+
     document.getElementById('btnEnviarSupabase').disabled = false;
     logEnvioVisivel = false;
     document.getElementById('stepUpload').classList.add('hidden');
@@ -250,6 +236,186 @@ async function verificarArquivoJaEnviado(nomeArquivo) {
 
     status.innerText = '';
     btn.disabled = false;
+}
+
+// ---- Conciliacao manual ----
+// Vincula manualmente um comprovante (nao_conciliados) a um lancamento do ERP (erp_nao_conciliados).
+// O par vinculado entra em ultimoResultado.conciliados no mesmo formato dos pares automaticos
+// (dados + erp_dados), entao ele segue pro lote de envio junto com o resto sem nenhum tratamento especial.
+
+function atualizarStatsExibidos() {
+    if (!ultimoResultado) return;
+    document.getElementById('statConciliados').innerText = ultimoResultado.conciliados.length;
+    document.getElementById('statNaoConciliados').innerText = ultimoResultado.nao_conciliados.length;
+    document.getElementById('statErpSobrando').innerText = ultimoResultado.erp_nao_conciliados.length;
+
+    const semPendencias = ultimoResultado.nao_conciliados.length === 0 && ultimoResultado.erp_nao_conciliados.length === 0;
+    document.getElementById('manualLinkBar').classList.toggle('hidden', semPendencias);
+}
+
+function formatValorBruto(valor) {
+    const n = valorParaNumero(valor);
+    if (n === null) return valor ? esc(valor) : '';
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function abrirConciliacaoManual() {
+    if (!ultimoResultado) return;
+    manualSelComprovante = null;
+    manualSelErps.clear();
+    document.getElementById('stepUpload').classList.add('hidden');
+    document.getElementById('stepManual').classList.remove('hidden');
+    document.getElementById('modalConciliacaoBox').classList.add('modal-wide');
+    renderManual();
+}
+
+function fecharConciliacaoManual() {
+    document.getElementById('stepManual').classList.add('hidden');
+    document.getElementById('stepUpload').classList.remove('hidden');
+    document.getElementById('modalConciliacaoBox').classList.remove('modal-wide');
+    atualizarStatsExibidos();
+}
+
+function selecionarManualComprovante(idx) {
+    manualSelComprovante = manualSelComprovante === idx ? null : idx;
+    renderManual();
+}
+
+// ERP aceita varios selecionados ao mesmo tempo (1 comprovante pode cobrir varios lancamentos)
+function selecionarManualErp(idx) {
+    if (manualSelErps.has(idx)) {
+        manualSelErps.delete(idx);
+    } else {
+        manualSelErps.add(idx);
+    }
+    renderManual();
+}
+
+// Vincula o que estiver selecionado. Cobre 3 casos:
+// - comprovante + 1 ou mais ERPs: par normal (ou agrupado, quando o comprovante cobre varios lancamentos)
+// - so comprovante (nenhum ERP selecionado): confirma o pagamento mesmo sem lancamento correspondente
+//   no ERP enviado (ex: ERP desatualizado que nunca vai aparecer nessa planilha)
+// - so ERP(s) (nenhum comprovante selecionado): confirma lancamento(s) do ERP sem comprovante em PDF
+function vincularManual() {
+    const temComp = manualSelComprovante !== null;
+    const idxsErp = [...manualSelErps];
+    if (!temComp && idxsErp.length === 0) return;
+
+    const comp = temComp ? ultimoResultado.nao_conciliados[manualSelComprovante] : null;
+    const erpsSelecionados = idxsErp
+        .slice().sort((a, b) => a - b)
+        .map(i => ultimoResultado.erp_nao_conciliados[i]);
+
+    ultimoResultado.conciliados.push({
+        via: 'manual',
+        _manualId: ++manualIdCounter,
+        dados: temComp ? comp.comprovante : {},
+        erp_dados: erpsSelecionados.length === 0 ? null
+            : erpsSelecionados.length === 1 ? erpsSelecionados[0]
+            : erpsSelecionados,
+    });
+
+    if (temComp) ultimoResultado.nao_conciliados.splice(manualSelComprovante, 1);
+    // remove do maior indice pro menor, senao os indices menores mudam de posicao no meio da remocao
+    idxsErp.slice().sort((a, b) => b - a).forEach(i => ultimoResultado.erp_nao_conciliados.splice(i, 1));
+
+    manualSelComprovante = null;
+    manualSelErps.clear();
+    renderManual();
+    atualizarStatsExibidos();
+}
+
+function desvincularManual(manualId) {
+    const idx = ultimoResultado.conciliados.findIndex(c => c._manualId === manualId);
+    if (idx === -1) return;
+
+    const item = ultimoResultado.conciliados[idx];
+    ultimoResultado.conciliados.splice(idx, 1);
+
+    if (item.dados && Object.keys(item.dados).length > 0) {
+        ultimoResultado.nao_conciliados.push({ motivos: ['desfeito manualmente'], comprovante: item.dados });
+    }
+    const erpsDesfeitos = Array.isArray(item.erp_dados) ? item.erp_dados : (item.erp_dados ? [item.erp_dados] : []);
+    erpsDesfeitos.forEach(e => ultimoResultado.erp_nao_conciliados.push(e));
+
+    renderManual();
+    atualizarStatsExibidos();
+}
+
+function renderManual() {
+    const listComp = document.getElementById('manualListComprovantes');
+    const listErp = document.getElementById('manualListErp');
+    const naoConc = ultimoResultado.nao_conciliados;
+    const erpSobra = ultimoResultado.erp_nao_conciliados;
+
+    document.getElementById('manualCountComprovantes').innerText = naoConc.length;
+    document.getElementById('manualCountErp').innerText = erpSobra.length;
+
+    listComp.innerHTML = naoConc.length ? naoConc.map((item, idx) => {
+        const c = item.comprovante || {};
+        return `
+        <div class="manual-item ${manualSelComprovante === idx ? 'selected' : ''}" onclick="selecionarManualComprovante(${idx})">
+            <div class="manual-item-title">${esc(c.favorecido) || '(sem nome)'}</div>
+            <div class="manual-item-line">${formatCpfCnpj(c.cnpj_cpf)}</div>
+            <div class="manual-item-line">${esc(c.pagamento)} — ${formatValorBruto(c.valor)}</div>
+            ${item.motivos && item.motivos.length ? `<div class="manual-item-motivos">${esc(item.motivos.join(', '))}</div>` : ''}
+        </div>`;
+    }).join('') : '<div class="manual-empty">Nenhum comprovante sem par</div>';
+
+    listErp.innerHTML = erpSobra.length ? erpSobra.map((erp, idx) => `
+        <div class="manual-item ${manualSelErps.has(idx) ? 'selected' : ''}" onclick="selecionarManualErp(${idx})">
+            <div class="manual-item-title">${esc(erp.favorecido) || '(sem nome)'}</div>
+            <div class="manual-item-line">AP ${esc(erp.AP)} · ${esc(erp['Nº Documento'])}</div>
+            <div class="manual-item-line">${esc(erp.pagamento)} — ${formatValorBruto(erp.valor)}</div>
+        </div>`).join('') : '<div class="manual-empty">Nenhum lançamento do ERP sem par</div>';
+
+    atualizarResumoSelecaoManual();
+    renderVinculadosManuais();
+}
+
+function atualizarResumoSelecaoManual() {
+    const temComp = manualSelComprovante !== null;
+    const qtdErp = manualSelErps.size;
+    const btn = document.getElementById('btnVincularManual');
+    const resumo = document.getElementById('manualSelecaoResumo');
+
+    if (temComp && qtdErp > 0) {
+        btn.disabled = false;
+        btn.innerText = qtdErp === 1 ? 'Vincular selecionados' : `Vincular com os ${qtdErp} lançamentos selecionados`;
+        resumo.innerText = '';
+    } else if (temComp && qtdErp === 0) {
+        btn.disabled = false;
+        btn.innerText = 'Conciliar sem ERP';
+        resumo.innerText = 'Confirma o comprovante mesmo sem lançamento correspondente no ERP (ex: ERP desatualizado).';
+    } else if (!temComp && qtdErp > 0) {
+        btn.disabled = false;
+        btn.innerText = qtdErp === 1 ? 'Conciliar sem comprovante' : `Conciliar ${qtdErp} lançamentos sem comprovante`;
+        resumo.innerText = 'Confirma o(s) lançamento(s) do ERP mesmo sem comprovante em PDF.';
+    } else {
+        btn.disabled = true;
+        btn.innerText = 'Vincular selecionados';
+        resumo.innerText = '';
+    }
+}
+
+function renderVinculadosManuais() {
+    const manuais = ultimoResultado.conciliados.filter(c => c.via === 'manual');
+    const section = document.getElementById('manualLinkedSection');
+    const list = document.getElementById('manualLinkedList');
+
+    section.classList.toggle('hidden', manuais.length === 0);
+    list.innerHTML = manuais.map(item => {
+        const nomeComp = item.dados && item.dados.favorecido ? esc(item.dados.favorecido) : '(sem comprovante)';
+        const erps = Array.isArray(item.erp_dados) ? item.erp_dados : (item.erp_dados ? [item.erp_dados] : []);
+        const nomeErp = erps.length === 0 ? '(sem ERP)'
+            : erps.length === 1 ? esc(erps[0].favorecido)
+            : `${erps.length} lançamentos do ERP`;
+        return `
+        <div class="manual-linked-item">
+            <span>${nomeComp} ↔ ${nomeErp}</span>
+            <button type="button" onclick="desvincularManual(${item._manualId})">Desfazer</button>
+        </div>`;
+    }).join('');
 }
 
 function toggleLogEnvio() {
@@ -328,10 +494,8 @@ function conciliar() {
             ultimoResultado = data;
 
             document.getElementById('resultado').innerText = '';
-            document.getElementById('statConciliados').innerText = data.conciliados.length;
-            document.getElementById('statNaoConciliados').innerText = data.nao_conciliados.length;
-            document.getElementById('statErpSobrando').innerText = data.erp_nao_conciliados.length;
             document.getElementById('resultadoStats').classList.remove('hidden');
+            atualizarStatsExibidos();
 
             document.getElementById('logPdf').innerText = JSON.stringify(data.log_pdf, null, 2);
             document.getElementById('logErp').innerText = JSON.stringify(data.log_erp, null, 2);
@@ -385,6 +549,20 @@ function formatUN(valor) {
     if (!/^\d+$/.test(str)) return esc(str);
     const padded = str.padStart(6, '0');
     return esc(`${padded.slice(0, -2)}-${padded.slice(-2)}`);
+}
+
+// Formata CPF (11 digitos) ou CNPJ (14 digitos) so pra exibicao — o dado salvo continua cru,
+// sem pontuacao, do jeito que vem da planilha/comprovante. Outra quantidade de digitos mostra como veio.
+function formatCpfCnpj(valor) {
+    if (valor === null || valor === undefined || valor === '') return '';
+    const digitos = String(valor).replace(/\D/g, '');
+    if (digitos.length === 11) {
+        return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9, 11)}`;
+    }
+    if (digitos.length === 14) {
+        return `${digitos.slice(0, 2)}.${digitos.slice(2, 5)}.${digitos.slice(5, 8)}/${digitos.slice(8, 12)}-${digitos.slice(12, 14)}`;
+    }
+    return esc(valor);
 }
 
 function formatValor(val) {
@@ -578,7 +756,7 @@ function render(rows) {
             <td>${esc(r.favorecido)}</td>
             <td>${esc(r.ap)}</td>
             <td>${esc(r.numero_documento)}</td>
-            <td>${esc(r.cpf || r.cnpj)}</td>
+            <td>${formatCpfCnpj(r.cpf || r.cnpj)}</td>
             <td>${esc(r.pagamento_erp)}</td>
             <td>${formatValor(r.valor_erp)}</td>
             <td>${formatUN(r.un)}</td>
@@ -785,7 +963,7 @@ function montarHtmlComprovante(dados) {
   </div>
   <div class="row">
     <span>CPF/CNPJ:</span>
-    <span>${esc(dados.cnpj_cpf)}</span>
+    <span>${formatCpfCnpj(dados.cnpj_cpf)}</span>
   </div>
   <div class="row">
     <span>Instituição/Banco:</span>
