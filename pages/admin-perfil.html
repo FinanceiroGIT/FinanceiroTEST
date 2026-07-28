@@ -286,6 +286,27 @@
 
   .input-wrap:focus-within svg{ color: var(--royal); }
 
+  select{
+    width:100%;
+    background: var(--input-bg);
+    border:1px solid var(--border-soft);
+    border-radius:11px;
+    padding:13px 14px 13px 42px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--text-primary);
+    outline:none;
+    appearance:none;
+    cursor:pointer;
+    transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  }
+  select:hover{ border-color: rgba(36,81,230,0.28); }
+  select:focus{
+    border-color: var(--border-focus);
+    background: var(--input-bg-focus);
+    box-shadow: 0 0 0 4px rgba(36,81,230,0.14);
+  }
+
   .nome-wrapper input[type="text"]{ padding-right:34px; }
 
   #btnSeta{
@@ -470,6 +491,18 @@
       </div>
 
       <div>
+        <label class="field-label" for="hierarquia">Hierarquia</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/>
+          </svg>
+          <select id="hierarquia">
+            <option value="">Carregando...</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
         <label class="field-label" for="unList">Selecione as UNs</label>
         <div class="un-list" id="unList">Carregando...</div>
       </div>
@@ -537,10 +570,30 @@
     `).join('');
   }
 
+  async function carregarHierarquias() {
+    const selectHierarquia = document.getElementById('hierarquia');
+    const { data, error } = await supabaseClient
+      .from('Perfil')
+      .select('hierarquia')
+      .not('hierarquia', 'is', null);
+
+    if (error) {
+      console.error(error);
+      selectHierarquia.innerHTML = '<option value="">Erro ao carregar</option>';
+      return;
+    }
+
+    const valores = [...new Set((data || []).map(row => row.hierarquia).filter(Boolean))].sort();
+    const escapeHtml = (str) => str.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+    selectHierarquia.innerHTML = '<option value="">Selecione...</option>' +
+      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  }
+
   async function carregarPerfisExistentes() {
     const { data, error } = await supabaseClient
       .from('Perfil')
-      .select('nome, email, un')
+      .select('nome, email, un, hierarquia')
       .order('nome');
 
     if (error) {
@@ -560,6 +613,7 @@
   function entrarEmModoEdicao(perfil) {
     emailEmEdicao = perfil.email;
     document.getElementById('email').value = perfil.email;
+    document.getElementById('hierarquia').value = perfil.hierarquia || '';
     marcarCheckboxesDaPessoa(perfil.un);
     document.getElementById('modoEdicaoAviso').style.display = 'block';
     document.getElementById('btnNovo').style.display = 'block';
@@ -569,6 +623,7 @@
   function sairDoModoEdicao() {
     emailEmEdicao = null;
     document.getElementById('formPerfil').reset();
+    document.getElementById('hierarquia').value = '';
     document.querySelectorAll('.un-checkbox').forEach(cb => cb.checked = false);
     document.getElementById('modoEdicaoAviso').style.display = 'none';
     document.getElementById('btnNovo').style.display = 'none';
@@ -651,6 +706,7 @@
     const autorizado = await verificarAcessoAdmin();
     if (!autorizado) return;
     await carregarUNs();
+    await carregarHierarquias();
     await carregarPerfisExistentes();
   }
   iniciar();
@@ -660,6 +716,7 @@
 
     const nome = document.getElementById('nome').value;
     const email = document.getElementById('email').value;
+    const hierarquia = document.getElementById('hierarquia').value || null;
     const un = Array.from(document.querySelectorAll('.un-checkbox:checked'))
       .map(cb => parseInt(cb.value));
     const status = document.getElementById('status');
@@ -677,12 +734,12 @@
     if (emailEmEdicao) {
       resultado = await supabaseClient
         .from('Perfil')
-        .update({ nome, email, un })
+        .update({ nome, email, un, hierarquia })
         .eq('email', emailEmEdicao);
     } else {
       resultado = await supabaseClient
         .from('Perfil')
-        .insert([{ nome, email, un }]);
+        .insert([{ nome, email, un, hierarquia }]);
     }
 
     const { error } = resultado;
